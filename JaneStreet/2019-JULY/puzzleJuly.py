@@ -1,14 +1,18 @@
 # Author: Hayk Aleksanyan
 # JaneStreet puzzle for JULY 2019, see https://www.janestreet.com/puzzles/scroggle/
 
-# for scraggle, one needs to use a dictionary provided at
-# http://scrabble.merriam.com/ following the Terms of Use described there
-# for demonstration purposes, we will use a standard english dictionary instead
+# for the actual game of Scrabble (see https://en.wikipedia.org/wiki/Scrabble), 
+# one needs to use a dictionary provided at
+# http://scrabble.merriam.com/ following the Terms of Use described there (their dictionary, in particular, cannot be reproduced here)
+# for demonstration purposes, we will use a standard english dictionary instead, 
+# everything that follows works the sam for the actual scrabble dictionary
+
 
 import numpy as np
 
 def readDictionary_FromText():
     """read the dictionary of words to be used in the game"""
+    
     dd = []
     with open('english_2-15.txt') as f:
         dd = f.readlines()
@@ -25,8 +29,12 @@ def readDictionary_FromText():
 
 
 def removeNonDistinct_Consonants(words, chars):
-    """ remove all words which have non-distinct consonants """
-    res = []
+    """  given a list of words and a set of chars,
+         remove all words which have repeating characters from the set of @chars
+         this will be used to remove all words that have non-distinct consonants, following the puzzle's definition
+    """
+    
+    res = [] 
     for word in words:
         X = dict()
         for c in word:
@@ -48,12 +56,15 @@ def removeNonDistinct_Consonants(words, chars):
 
 
 class Node:
+    """a node of a Trie"""
     def __init__(self, key, value = None):
         self.key = key
         self.value = value
         self.children = dict()
 
 class Trie:
+    """a Trie will be build on a given dictionary of words to ensure fast lookups of words by the prefix"""
+    
     def __init__(self, root):
         self.root = root # this is a Node
 
@@ -68,6 +79,7 @@ class Trie:
 
 
     def findPrefix(self, prefix):
+        """True, if the given prefix @prefix appears in this Trie"""
         curr_node = self.root
         for c in prefix:
             if not c in curr_node.children:
@@ -77,6 +89,7 @@ class Trie:
         return True
 
     def findWords_givePrefix(self, prefix):
+        """return the list of all words with the given @prefix"""
         ans = []
         curr_node = self.root
         for c in prefix:
@@ -97,9 +110,9 @@ class Trie:
         return ans
 
     def getAllWords(self):
-        # compute all words stored in this tree
+        """ find all words represented by this Trie, for testing purposes only"""
+        
         ans = [ ]
-
         stack = [(self.root, '')]
 
         while stack:
@@ -114,6 +127,7 @@ class Trie:
 
 
 class Board:
+    """ models the board of the game Scrabble """
     def __init__(self):
         self.board = Board.initBoard()
         self.chars =  list({'y', 'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'z'})
@@ -147,7 +161,7 @@ class Board:
 
     @staticmethod
     def n_choose_k(n, k):
-        # return all possible ways to choose k elements from n
+        """ return a list of (lists) all possible ways to choose k elements from n """
 
         if k > n or k == 0:
             return [[]]
@@ -164,7 +178,8 @@ class Board:
 
     @staticmethod
     def initBoard():
-        # the inital, partially filled board by JaneStreet
+        """ the inital partially filled board of the JaneStreet's puzzle """
+        
         b = [ 6*[''] for _ in range(6) ]
 
         b[0][1], b[0][3], b[0][5]  = 'o', 'e', 'u'
@@ -177,6 +192,8 @@ class Board:
         return b
 
     def getEmptySlots(self):
+        """ find empty positions of this board """
+        
         board_empty_slots = []
 
         for i in range(6):
@@ -186,49 +203,23 @@ class Board:
 
         return board_empty_slots
 
-    def generateAll_Boards( self ):
-        # choose k distinct chars from @chars
-        ans = []
-
-        N = len(self.chars)
-        choices = n_choose_k(N, 18 )  # 18 is the number of empty slots in the initial board
-
-        board_empty_slots = []
-        board = Board.initBoard()
-
-        for i in range(6):
-            for j in range(6):
-                if board[i][j] == '':
-                    board_empty_slots.append( (i,j) )
-
-        for letter_choice in choices:
-            board = initBoard()
-            i = 0
-            for (a,b) in board_empty_slots:
-                board[a][b] = self.chars[ letter_choice[i] ]
-                i += 1
-
-            ans.append(board)
-
-        return ans
-
 
 class Scraggle(Board):
-
+    """ a model of the actual game played on Board """
+    
     def __init__(self, wordList):
-        # initialize the board to the prefilled state (with vowels)
+        """ initialize the board to the prefilled state (with vowels) """
 
-        super().__init__()
+        super().__init__()                     # initialize the Board
 
         self.board = Board.initBoard()
         self.wordList = wordList               # the raw list of legal scraggle-words
-        self.T = self.generateTrie()           # the Trie, build on @wordList
+        self.T = self.generateTrie()           # the Trie build on @wordList
 
         self.words = []                        # given the board, filtered list of words from wordList, which can be obtained
                                                #    by walking the board using chess king moves (the same letter can be reused)
         self.words_coord = []                  # coordinates (list of tuples) of the words in @words
         self.seen = set()                      # used to track the already generated words from @wordList
-
 
 
     def __str__(self):
@@ -248,14 +239,14 @@ class Scraggle(Board):
         for i, word in enumerate(self.wordList):
             T.insert(word, i )
 
-        print('Trie is ready')
+        print('the Trie is ready')
         return T
 
 
 
     def findValidWords(self):
         """
-           given the board, and the already build Trie, find all words which can be obtained by king moves
+           given the board and the already build Trie, find all words which can be obtained by (chess) king moves
            on the self.board
         """
 
@@ -269,8 +260,10 @@ class Scraggle(Board):
 
 
     def lookup(self, current_Node, a, b, wordPath, coordPath ):
-        # look for possible moves from (a,b) on board, and in the children nodes of the current node
-        # the wordPath represents the char-path covered so far
+        """ 
+            look for possible moves from (a,b) on board, and in the children nodes of the current node
+            the wordPath represents the char-path covered so far
+        """
 
         if current_Node.value != None:
             if not wordPath in self.seen:
@@ -280,7 +273,7 @@ class Scraggle(Board):
             return
 
         if (a >= 6 or a < 0 )or( b >= 6 or b < 0)or( len(wordPath) > 15 ):
-            # we're out of the board region
+            # we are out of the board region
             return
 
         char = self.board[a][b]
@@ -297,9 +290,10 @@ class Scraggle(Board):
 
     @staticmethod
     def words_start_end_restricted( coords, start_a, start_b, start_c, start_d, end_a, end_b, end_c, end_d ):
-        # from a list of coordinates, return those which start and end at the given boxes
-        # START box: [ start_a, start_b ]x[start_c, start_d], the same for END box
-
+        """ from a list of coordinates, return those which start and end at the given boxes
+            START box: [ start_a, start_b ]x[start_c, start_d], the same for END box
+        """
+        
         ans = []
         for i, coord in enumerate(coords):
             a, b = coord[0] # start coordinate of the word
@@ -317,7 +311,7 @@ class Scraggle(Board):
 
 
     def bestChainOntheBoard(self, output = False):
-        # given the board, we find the best (in terms of scraggle score) chain on the board
+        """ given the board, we find the best (in terms of scraggle score) chain on the board """
 
         candidates = self.findChains()
         if not candidates:
@@ -344,12 +338,12 @@ class Scraggle(Board):
 
 
     def findChains(self):
-        # find a chain of words in red, blue, green, violet;
+        """ find a chain of words in red, blue, green, violet (see the puzzle's defintion) """
 
         ans = []
 
         red_blue = Scraggle.words_start_end_restricted(self.words_coord, 0,2,0,2,  1,2,1,2 )
-        # list of tuples (index, coord)
+        # this will be a list of tuples (index, coord)
 
         for (i, coord) in red_blue:
             blue_start = coord[-1]
@@ -375,12 +369,11 @@ class Scraggle(Board):
                     for (p, coord_3) in violet_end:
                         ans.append( [ (i, coord), (j, coord_1), (k, coord_2), (p, coord_3) ] )
 
-
         return ans
 
 
     def chain_to_str(self, sampleChain):
-        # print the chain, a list of 4 lists of [word_index in words, [coordinates in board]]
+        """ print the chain, a list of 4 lists of [word_index in words, [coordinates in board]] """
 
         ans = ""
         for (w_ind, word_path) in sampleChain:
@@ -390,7 +383,7 @@ class Scraggle(Board):
 
     @staticmethod
     def scraggleScore(word):
-        # compute the scraggle score of the given word
+        """ compute the scraggle score of the given word """
 
         ans = 0
 
@@ -410,6 +403,7 @@ class Scraggle(Board):
 
     @staticmethod
     def getDirection(p1, p2):
+        """ get an arrow sign to move from coordinate p1 to p2 on the Board (just for illustrative purposes) """
         dx, dy = p2[0] - p1[0], p2[1] - p1[1]
         if (dx, dy) == (0, 1):
             return '\u2192'
@@ -432,7 +426,8 @@ class Scraggle(Board):
 
     @staticmethod
     def getBoardPath(coords):
-        # @coords is a list of tuples
+        """ @coords is a list of tuples, find the path using the move-to-arrow string conversion """
+        
         s = str( coords[0] )
         p1 = coords[0]
         for i in range(1, len(coords)):
@@ -444,6 +439,8 @@ class Scraggle(Board):
 
 
     def computeChainScore(self, wordChain):
+        """ compute the scraggle score of this chain of words """
+        
         if not wordChain:
             return 0
 
